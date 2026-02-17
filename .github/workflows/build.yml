@@ -53,7 +53,8 @@ jobs:
         run: |
           # Use hdiutil which is more reliable in Headless environments
           mkdir -p dmg_root
-          cp -r "build/bin/${{ matrix.output }}" dmg_root/
+          # Copy any folder ending in .app from build/bin
+          cp -r build/bin/*.app dmg_root/
           hdiutil create -volname "Moadhn" -srcfolder dmg_root -ov -format UDZO moadhn-macos.dmg
 
       - name: Package Linux AppImage
