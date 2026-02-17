@@ -13,7 +13,7 @@ jobs:
         include:
           - platform: ubuntu-22.04
             os: linux/amd64
-            name: moadhn-linux
+            name: moadhn-linux.bin
           - platform: macos-latest
             os: darwin/universal
             name: moadhn-macos
@@ -46,13 +46,19 @@ jobs:
       - name: Build Application
         run: wails build -platform ${{ matrix.os }} -o ${{ matrix.name }}
 
+      - name: Package macOS App
+        if: runner.os == 'macOS'
+        run: |
+          cd build/bin
+          zip -r ../../${{ matrix.name }}.zip ${{ matrix.name }}.app
+
       - name: Archive Production Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.name }}
           path: |
-            build/bin/*
-            build/bin/moadhn.app
+            build/bin/${{ matrix.name }}
+            ${{ matrix.name }}.zip
 
   release:
     needs: build
@@ -68,7 +74,8 @@ jobs:
       - name: Prepare files for release
         run: |
           mkdir release_files
-          find artifacts -type f \( -name "moadhn*" -o -name "*.app" \) -exec cp {} release_files/ \;
+          # Copy all executable and compressed files to release_files
+          find artifacts -type f \( -name "*.bin" -o -name "*.zip" \) -exec cp -v {} release_files/ \;
 
       - name: Update Latest Release
         uses: softprops/action-gh-release@v2
