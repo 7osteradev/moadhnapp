@@ -4,7 +4,6 @@ import (
 	"embed"
 	"net/http"
 
-	"github.com/getlantern/systray"
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
@@ -19,38 +18,13 @@ var iconData []byte
 func main() {
 	app := NewApp()
 
-	// Start Systray in a goroutine
-	// This adds the application to the system tray (hidden icons area) on Windows
-	go func() {
-		systray.Run(func() {
-			systray.SetIcon(iconData)
-			systray.SetTitle("Moadhn")
-			systray.SetTooltip("Moadhn - مؤذن")
-
-			mShow := systray.AddMenuItem("فتح التطبيق - Open", "Show the main window")
-			systray.AddSeparator()
-			mQuit := systray.AddMenuItem("إغلاق نهائياً - Quit", "Quit the application")
-
-			// Handle menu actions
-			go func() {
-				for {
-					select {
-					case <-mShow.ClickedCh:
-						app.ShowMainWindow()
-					case <-mQuit.ClickedCh:
-						app.QuitApp()
-					}
-				}
-			}()
-		}, func() {
-			// On exit logic if needed
-		})
-	}()
+	// Setup Systray (Platform specific)
+	setupSystray(app)
 
 	err := wails.Run(&options.App{
-		Title:  "مؤذن - Moadhn",
-		Width:  1000,
-		Height: 600,
+		Title:     "مؤذن - Moadhn",
+		Width:     1000,
+		Height:    600,
 		MinWidth:  400,
 		MinHeight: 500,
 		Frameless: true,
