@@ -51,26 +51,18 @@ jobs:
       - name: Package macOS DMG
         if: runner.os == 'macOS'
         run: |
-          # Install create-dmg
-          brew install create-dmg
-          # Create DMG
-          create-dmg \
-            --volname "Moadhn Install" \
-            --window-pos 200 120 \
-            --window-size 800 400 \
-            --icon-size 100 \
-            --icon "${{ matrix.output }}" 200 190 \
-            --hide-extension "${{ matrix.output }}" \
-            --app-drop-link 600 185 \
-            "moadhn-macos.dmg" \
-            "build/bin/"
+          # Use hdiutil which is more reliable in Headless environments
+          mkdir -p dmg_root
+          cp -r "build/bin/${{ matrix.output }}" dmg_root/
+          hdiutil create -volname "Moadhn" -srcfolder dmg_root -ov -format UDZO moadhn-macos.dmg
 
       - name: Package Linux AppImage
         if: runner.os == 'Linux'
         run: |
-          # Building a basic AppImage using linuxdeploy (on the fly)
+          # Download linuxdeploy
           wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
           chmod +x linuxdeploy-x86_64.AppImage
+          
           # Create Desktop file
           echo "[Desktop Entry]
           Type=Application
@@ -78,9 +70,11 @@ jobs:
           Exec=moadhn
           Icon=moadhn
           Categories=Utility;" > moadhn.desktop
+          
           # Run linuxdeploy
           export OUTPUT="moadhn-linux.AppImage"
-          ./linuxdeploy-x86_64.AppImage --appdir AppDir -e build/bin/moadhn -i build/appicon.png -d moadhn.desktop --output appimage
+          # Create a dummy AppDir and run linuxdeploy
+          ./linuxdeploy-x86_64.AppImage --appdir AppDir -e build/bin/${{ matrix.output }} -i build/appicon.png -d moadhn.desktop --output appimage
           mv moadhn-linux*.AppImage moadhn-linux.AppImage
 
       - name: Archive Production Artifacts
