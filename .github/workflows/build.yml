@@ -14,11 +14,11 @@ jobs:
           - platform: ubuntu-22.04
             os: linux/amd64
             name: moadhn-linux
-            output: moadhn-linux.bin
+            output: moadhn
           - platform: macos-latest
             os: darwin/universal
             name: moadhn-macos
-            output: moadhn-macos.app
+            output: moadhn.app
 
     runs-on: ${{ matrix.platform }}
 
@@ -40,7 +40,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev libayatana-appindicator3-dev
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev libayatana-appindicator3-dev rpm
 
       - name: Install Wails
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
@@ -48,20 +48,48 @@ jobs:
       - name: Build Application
         run: wails build -platform ${{ matrix.os }} -o ${{ matrix.output }}
 
-      - name: Package macOS App
+      - name: Package macOS DMG
         if: runner.os == 'macOS'
         run: |
-          cd build/bin
-          # Zip the generated .app bundle
-          zip -r ../../${{ matrix.name }}.zip ${{ matrix.output }}
+          # Install create-dmg
+          brew install create-dmg
+          # Create DMG
+          create-dmg \
+            --volname "Moadhn Install" \
+            --window-pos 200 120 \
+            --window-size 800 400 \
+            --icon-size 100 \
+            --icon "${{ matrix.output }}" 200 190 \
+            --hide-extension "${{ matrix.output }}" \
+            --app-drop-link 600 185 \
+            "moadhn-macos.dmg" \
+            "build/bin/"
+
+      - name: Package Linux AppImage
+        if: runner.os == 'Linux'
+        run: |
+          # Building a basic AppImage using linuxdeploy (on the fly)
+          wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          chmod +x linuxdeploy-x86_64.AppImage
+          # Create Desktop file
+          echo "[Desktop Entry]
+          Type=Application
+          Name=Moadhn
+          Exec=moadhn
+          Icon=moadhn
+          Categories=Utility;" > moadhn.desktop
+          # Run linuxdeploy
+          export OUTPUT="moadhn-linux.AppImage"
+          ./linuxdeploy-x86_64.AppImage --appdir AppDir -e build/bin/moadhn -i build/appicon.png -d moadhn.desktop --output appimage
+          mv moadhn-linux*.AppImage moadhn-linux.AppImage
 
       - name: Archive Production Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.name }}
           path: |
-            build/bin/${{ matrix.output }}
-            ${{ matrix.name }}.zip
+            moadhn-macos.dmg
+            moadhn-linux.AppImage
 
   release:
     needs: build
@@ -77,8 +105,8 @@ jobs:
       - name: Prepare files for release
         run: |
           mkdir release_files
-          # Copy all executable and compressed files to release_files
-          find artifacts -type f \( -name "*.bin" -o -name "*.zip" \) -exec cp -v {} release_files/ \;
+          # Copy .dmg and .AppImage files
+          find artifacts -type f \( -name "*.dmg" -o -name "*.AppImage" \) -exec cp -v {} release_files/ \;
 
       - name: Update Latest Release
         uses: softprops/action-gh-release@v2
@@ -86,7 +114,7 @@ jobs:
           files: release_files/*
           tag_name: latest
           name: "Latest Build"
-          body: "هذه النسخة تحتوي على أحدث التحديثات التلقائية."
+          body: "هذه النسخة تحتوي على أحدث التحديثات التلقائية (DMG للماك و AppImage للينكس)."
           generate_release_notes: true
           make_latest: true
           draft: false
