@@ -445,9 +445,9 @@ function App() {
                 </div>
 
                 {/* بطاقات أوقات الصلاة */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mb-10">
+                <div className="flex flex-row overflow-x-auto gap-5 mb-10 py-4 px-2 snap-x scrollbar-thin scrollbar-thumb-purple-500/30 hover:scrollbar-thumb-purple-500/60 transition-colors">
                   {prayerTimes.map((prayer, index) => (
-                    <div key={index} className="prayer-card"
+                    <div key={index} className="prayer-card flex-1 min-w-[140px] snap-center"
                       onClick={() => setSelectedPrayer(selectedPrayer === index ? null : index)}>
                       <div className={`rounded-xl p-5 border transition-all ${prayer.isNext ? `${t.nextCard}`
                         : selectedPrayer === index ? `${t.cardSelected}`

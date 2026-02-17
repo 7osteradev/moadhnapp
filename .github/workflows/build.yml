@@ -1,0 +1,53 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - platform: ubuntu-latest
+            os: linux
+            name: moadhn-linux
+          - platform: macos-latest
+            os: darwin
+            name: moadhn-macos
+          - platform: windows-latest
+            os: windows
+            name: moadhn-windows
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+
+      - name: Build Application
+        uses: wailsapp/wails-action@v2
+        with:
+          platform: ${{ matrix.os }}
+          package: true
+          go-version: '1.21'
+
+      - name: Archive Production Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.name }}
+          path: |
+            build/bin/moadhn*
+            build/bin/moadhn.app

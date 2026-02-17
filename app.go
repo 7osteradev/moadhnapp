@@ -135,7 +135,7 @@ func (a *App) ShowMainWindow() {
 	if a.ctx == nil {
 		return
 	}
-	wailsRuntime.WindowSetSize(a.ctx, 1024, 768)
+	wailsRuntime.WindowSetSize(a.ctx, 1000, 600)
 	wailsRuntime.WindowShow(a.ctx)
 	wailsRuntime.WindowUnminimise(a.ctx)
 	wailsRuntime.WindowSetAlwaysOnTop(a.ctx, false)

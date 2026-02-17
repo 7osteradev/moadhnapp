@@ -49,8 +49,8 @@ func main() {
 
 	err := wails.Run(&options.App{
 		Title:  "مؤذن - Moadhn",
-		Width:  1024,
-		Height: 768,
+		Width:  1000,
+		Height: 600,
 		MinWidth:  400,
 		MinHeight: 500,
 		Frameless: true,

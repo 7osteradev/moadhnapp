@@ -93,7 +93,10 @@ export default function AdhanAlert({ isVisible, prayerName, prayerNameAr, onDism
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80" dir="rtl">
-            <div className={`relative w-full h-full flex flex-col justify-center items-center ${darkMode ? 'bg-[#0a0a0f]' : 'bg-[#f8f7ff]'}`}>
+            <div
+                className={`relative w-full h-full flex flex-col justify-center items-center ${darkMode ? 'bg-[#0a0a0f]' : 'bg-[#f8f7ff]'}`}
+                style={{ "--wails-draggable": "drag" } as any}
+            >
                 {/* Progress bar */}
                 <div className="absolute top-0 left-0 w-full h-1 bg-purple-600/10">
                     <div className="h-full bg-purple-600 animate-slide-up" style={{ animationDuration: '300s' }} />
@@ -125,6 +128,7 @@ export default function AdhanAlert({ isVisible, prayerName, prayerNameAr, onDism
                     <button
                         onClick={onDismiss}
                         className={`w-64 py-4 rounded-xl font-bold text-lg transition-all active:scale-95 cursor-pointer bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-600/20`}
+                        style={{ "--wails-draggable": "no-drag" } as any}
                     >
                         إيقاف الأذان
                     </button>
