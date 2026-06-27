@@ -1,6 +1,6 @@
 # Moadhn App - تطبيق مؤذن
 
-![Moadhn App Banner](https://cdn.discordapp.com/attachments/1354008723705565185/1520402082224406548/image.png?ex=6a411048&is=6a3fbec8&hm=64ad0609ee9a6f2e826e506521d158422e8b591eca2dadbe942225be1e2aa35b&)
+![Moadhn App Banner](https://cdn.discordapp.com/attachments/1354008723705565185/1520402108590067722/image.png?ex=6a41104e&is=6a3fbece&hm=d2be4f965db87fcecb030d583612e68e6a58c9c3c4253a4691f576cb13d36cce&)
 
 A modern, elegant, and cross-platform desktop application for Islamic prayer times and Adhan notifications. Built with **Go (Wails)** and **React**.
 
