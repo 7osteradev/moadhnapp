@@ -85,9 +85,13 @@ jobs:
           wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
           chmod +x linuxdeploy-x86_64.AppImage
 
-          # Wails names the Linux binary with the platform suffix; rename it so
-          # the desktop entry and the AppImage launcher agree on the name.
-          mv build/bin/moadhn-linux-amd64 build/bin/moadhn
+          # Wails writes the Linux binary as build/bin/moadhn. Fall back to
+          # whatever executable it produced, in case naming changes.
+          if [ ! -f build/bin/moadhn ]; then
+            BIN="$(find build/bin -maxdepth 1 -type f -perm -u+x | head -n 1)"
+            echo "Found binary: $BIN"
+            mv "$BIN" build/bin/moadhn
+          fi
 
           cp build/appicon.png moadhn.png
           cat > moadhn.desktop <<'EOF'
