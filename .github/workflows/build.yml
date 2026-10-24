@@ -2,92 +2,151 @@ name: Build and Release
 
 on:
   push:
+    branches:
+      - main
+      - master
     tags:
-      - 'v*'
+      - '*'
   workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '22'
 
 jobs:
   build:
+    name: Build ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         include:
-          - platform: ubuntu-22.04
-            os: linux/amd64
-            name: moadhn-linux
-            output: moadhn
-          - platform: macos-latest
-            os: darwin/universal
-            name: moadhn-macos
-            output: moadhn.app
-
-    runs-on: ${{ matrix.platform }}
+          - os: ubuntu-22.04
+            name: linux
+            platform: linux/amd64
+            artifact: moadhn-linux.AppImage
+          - os: macos-latest
+            name: macos
+            platform: darwin/universal
+            artifact: moadhn-macos.dmg
+          - os: windows-latest
+            name: windows
+            platform: windows/amd64
+            artifact: build/windows/installer/MoadhnApp_Setup.exe
 
     steps:
-      - name: Checkout Code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Go
+      - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version-file: go.mod
+          cache: true
 
-      - name: Setup Node.js
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
 
-      - name: Install Linux Dependencies
+      - name: Install Linux dependencies
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev libayatana-appindicator3-dev rpm
+          sudo apt-get install -y \
+            pkg-config \
+            libgtk-3-dev \
+            libwebkit2gtk-4.0-dev \
+            libayatana-appindicator3-dev
 
-      - name: Install Wails
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
-
-      - name: Build Application
-        run: wails build -platform ${{ matrix.os }} -o ${{ matrix.output }}
-
-      - name: Package macOS DMG
-        if: runner.os == 'macOS'
+      - name: Install Wails CLI
+        shell: bash
         run: |
-          # Use hdiutil which is more reliable in Headless environments
-          mkdir -p dmg_root
-          # Copy any folder ending in .app from build/bin
-          cp -r build/bin/*.app dmg_root/
-          hdiutil create -volname "Moadhn" -srcfolder dmg_root -ov -format UDZO moadhn-macos.dmg
+          WAILS_VERSION="$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v2)"
+          echo "Installing Wails $WAILS_VERSION"
+          go install "github.com/wailsapp/wails/v2/cmd/wails@${WAILS_VERSION}"
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Build application
+        run: wails build -clean -platform ${{ matrix.platform }}
 
       - name: Package Linux AppImage
         if: runner.os == 'Linux'
+        shell: bash
         run: |
-          # Download linuxdeploy
-          wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
           chmod +x linuxdeploy-x86_64.AppImage
-          
-          # Create Desktop file
-          echo "[Desktop Entry]
+
+          # Wails names the Linux binary with the platform suffix; rename it so
+          # the desktop entry and the AppImage launcher agree on the name.
+          mv build/bin/moadhn-linux-amd64 build/bin/moadhn
+
+          cp build/appicon.png moadhn.png
+          cat > moadhn.desktop <<'EOF'
+          [Desktop Entry]
           Type=Application
           Name=Moadhn
           Exec=moadhn
           Icon=moadhn
-          Categories=Utility;" > moadhn.desktop
-          
-          # Run linuxdeploy
-          export OUTPUT="moadhn-linux.AppImage"
-          # Create a dummy AppDir and run linuxdeploy
-          ./linuxdeploy-x86_64.AppImage --appdir AppDir -e build/bin/${{ matrix.output }} -i build/appicon.png -d moadhn.desktop --output appimage
-          mv moadhn-linux*.AppImage moadhn-linux.AppImage
+          Categories=Utility;
+          Terminal=false
+          EOF
 
-      - name: Archive Production Artifacts
+          # Extract-and-run avoids needing FUSE on the runner.
+          APPIMAGE_EXTRACT_AND_RUN=1 \
+          OUTPUT=moadhn-linux.AppImage \
+          ./linuxdeploy-x86_64.AppImage \
+            --appdir AppDir \
+            -e build/bin/moadhn \
+            -d moadhn.desktop \
+            -i moadhn.png \
+            --output appimage
+
+          ls -lh moadhn-linux.AppImage
+          test -f moadhn-linux.AppImage
+
+      - name: Package macOS DMG
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p dmg_root
+          cp -R build/bin/*.app dmg_root/
+          hdiutil create -volname "Moadhn" -srcfolder dmg_root -ov -format UDZO moadhn-macos.dmg
+          ls -lh moadhn-macos.dmg
+
+      - name: Package Windows installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install innosetup --no-progress -y
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (!(Test-Path $iscc)) {
+            $iscc = "$env:ProgramFiles\Inno Setup 6\ISCC.exe"
+          }
+          if (!(Test-Path $iscc)) {
+            throw "ISCC.exe (Inno Setup) was not found"
+          }
+          & $iscc "moadhnapp.iss"
+          Get-ChildItem build/windows/installer/*.exe | Format-Table Name, Length
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.name }}
-          path: |
-            moadhn-macos.dmg
-            moadhn-linux.AppImage
+          name: moadhn-${{ matrix.name }}
+          path: ${{ matrix.artifact }}
+          if-no-files-found: error
 
   release:
+    name: Publish release
     needs: build
+    if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -96,20 +155,18 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts
+          merge-multiple: true
 
-      - name: Prepare files for release
-        run: |
-          mkdir release_files
-          # Copy .dmg and .AppImage files
-          find artifacts -type f \( -name "*.dmg" -o -name "*.AppImage" \) -exec cp -v {} release_files/ \;
+      - name: List release files
+        run: ls -lh artifacts
 
-      - name: Update Latest Release
+      - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          files: release_files/*
-          tag_name: latest
-          name: "Latest Build"
-          body: "هذه النسخة تحتوي على أحدث التحديثات التلقائية (DMG للماك و AppImage للينكس)."
+          files: artifacts/*
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'latest' }}
+          name: ${{ github.ref_type == 'tag' && github.ref_name || 'Latest Build' }}
+          body: "هذه النسخة تحتوي على أحدث التحديثات التلقائية (Windows و DMG للماك و AppImage للينكس)."
           generate_release_notes: true
           make_latest: true
           draft: false

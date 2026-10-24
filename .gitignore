@@ -1,5 +1,5 @@
-build
 build/bin
+build/windows/installer/*.exe
 node_modules
 frontend/dist
 package-lock.json
